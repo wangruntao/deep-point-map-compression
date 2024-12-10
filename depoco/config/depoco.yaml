@@ -2,117 +2,117 @@
 # training parameters
 ################################################################################
 train:
-  experiment_id: "your_model"
-  max_epochs: 200
-  use_adam: True
-  batch_size: 3 # batch size
-  max_nr_pts: 30000 # nr points
-  workers: 0 # number of threads to get data
-  optimizer: # Adam
-    start_lr: 0.000001 # start learning rate
-    max_lr: 0.0001 # max learning rate
-    end_lr: 0.00001 # end learning rate
-    pct_incr_cycle: 0.1 # one cycle max at epoch in %
-    anneal_strategy: "cos" # "linear" or "cos"
-    momentum: 0.9 # sgd momentum
-  nr_submaps: 0 # nr of maps using for training, 0 for using all maps
-  load_pretrained: False
-  sampling_method: "random" # 'ordered' or 'random'
-  map_prob_rate: -1 # every x epochs computes the loss for each train map and sets those as sample distribution, -1 for no update
-  loss_weights:
-    transf2map: 1.0 # dist(transf, map)    transf = samples + t
-    map2transf: 1.0 # dist(map, transf)
-    upsampling_reg: 0.2 # chmf dist for intermediate upsampling blocks
-  validation:
-    report_rate: 1 # every x epochs on tensorboard
-    save_result_rate: 500 # every x validations generates one image (doesnt work in docker)
-
+  experiment_id: "your_model"  # 实验的唯一标识符
+  max_epochs: 200  # 训练的最大轮数
+  use_adam: True  # 是否使用Adam优化器
+  batch_size: 3  # 批次大小
+  max_nr_pts: 30000  # 每个子图中的最大点数
+  workers: 0  # 获取数据的线程数
+  optimizer:  # Adam优化器参数
+    start_lr: 0.000001  # 初始学习率
+    max_lr: 0.0001  # 最大学习率
+    end_lr: 0.00001  # 结束学习率
+    pct_incr_cycle: 0.1  # 学习率在一个周期内达到最大值的时间百分比
+    anneal_strategy: "cos"  # 学习率衰减策略，可选值为 "linear" 或 "cos"
+    momentum: 0.9  # SGD动量（不适用于Adam）
+  nr_submaps: 0  # 用于训练的子图数量，0表示使用所有子图
+  load_pretrained: False  # 是否加载预训练模型
+  sampling_method: "random"  # 采样方法，可选值为 "ordered" 或 "random"
+  map_prob_rate: -1  # 每隔多少个epoch重新计算每个训练子图的损失并设置为采样分布，-1表示不更新
+  loss_weights:  # 损失权重
+    transf2map: 1.0  # 转换到地图的距离损失权重
+    map2transf: 1.0  # 地图到转换的距离损失权重
+    upsampling_reg: 0.2  # 中间上采样块的Chamfer距离损失权重
+  validation:  # 验证参数
+    report_rate: 1  # 每隔多少个epoch在TensorBoard上报告验证结果
+    save_result_rate: 500  # 每隔多少次验证生成一张图像（在Docker中不起作用）
 
 ################################################################################
 # Voxel Grid parameter (just for data generation)
 ################################################################################
 grid:
-  pose_distance: 15
-  size: #x,y,z
+  pose_distance: 15  # 姿态之间的距离
+  size:  # 体素网格的尺寸 (x, y, z)
     - 40.0
     - 40.0
-    - 15.0 # ca. -9 to 4 => center at 2.5
-  dz: 4.0 # offset to pose center in z direction, = 2.5 - size['z']/2
-  voxel_size: 0.1
-  max_range: 20.0
-  min_range: 2.0
-  features: ['intensity','label','eigenvalues','normals']
-  feature_dim: [1,1,3,3]
-  normal_eigenvalue_radius: 0.5 # radius for computing normals and the eigenvalues
+    - 15.0  # 大约从-9到4，中心在2.5
+  dz: 4.0  # 姿态中心在z方向上的偏移，等于2.5 - size['z']/2
+  voxel_size: 0.1  # 体素大小
+  max_range: 20.0  # 最大范围
+  min_range: 2.0  # 最小范围
+  features: ['intensity', 'label', 'eigenvalues', 'normals']  # 特征列表
+  feature_dim: [1, 1, 3, 3]  # 每个特征的维度
+  normal_eigenvalue_radius: 0.5  # 计算法线和特征值的半径
 
 evaluation:
-  float16: True
+  float16: True  # 是否使用float16进行评估
   iou_grid:
-    resolution: [0.2,0.2,0.1]
-  f_score_dist: 0.1 # distance for being outlier
-  out_dir: 'experiments/results/kitti/'
+    resolution: [0.2, 0.2, 0.1]  # IOU网格的分辨率
+  f_score_dist: 0.1  # 被认为是离群点的距离
+  out_dir: 'experiments/results/kitti/'  # 评估结果的输出目录
+
 ################################################################################
 # Network parameters
 ################################################################################
 network:
-    # a block needs the attributes: type, number_blocks, parameters
-  encoder_blocks: # list:* indicates muliple blocks of the same type
-    - type: "GridSampleConv" #SampleBlock, RandomSampleKPConv
-      number_blocks: 3
+  # 一个块需要以下属性：type, number_blocks, parameters
+  encoder_blocks:  # 编码器块列表
+    - type: "GridSampleConv"  # 样本块类型，可选值为 "SampleBlock", "RandomSampleKPConv"
+      number_blocks: 3  # 块的数量
       parameters:
-        in_fdim: [1, 16,32] #input and output dimension
-        out_fdim:   [16,32,32] #input and output dimension
-        num_kernel_points: 27
-        max_nr_neighbors: [70,50,25]
-        relu: True
-        batchnorm: True
-        deformable: False
-        subsampling_dist: 1.7 #min_dist between points: 0: no subsampling
-        map_size: 40 #to compute normalized radius
-        subsampling_factor: [0.1,0.5,1.0]
-        kernel_radius: 1.0 # factor of subsampling dist
-        min_kernel_radius: 1.5 #
-        use_dif_sampling: False
-    - type: "LinearLayer"
-      number_blocks: 1
+        in_fdim: [1, 16, 32]  # 输入和输出维度
+        out_fdim: [16, 32, 32]  # 输入和输出维度
+        num_kernel_points: 27  # 核心点的数量
+        max_nr_neighbors: [70, 50, 25]  # 最大邻居数量
+        relu: True  # 是否使用ReLU激活函数
+        batchnorm: True  # 是否使用批归一化
+        deformable: False  # 是否使用可变形卷积
+        subsampling_dist: 1.7  # 点之间的最小距离，0表示不进行下采样
+        map_size: 40  # 用于计算归一化半径的地图尺寸
+        subsampling_factor: [0.1, 0.5, 1.0]  # 下采样因子
+        kernel_radius: 1.0  # 半径因子
+        min_kernel_radius: 1.5  # 最小半径
+        use_dif_sampling: False  # 是否使用不同的采样方法
+    - type: "LinearLayer"  # 线性层
+      number_blocks: 1  # 块的数量
       parameters:
-        in_fdim: 32
-        out_fdim: 3
-        relu: False
-        batchnorm: False
-  decoder_blocks:
-    - type: "AdaptiveDeconv"
-      number_blocks: 4
+        in_fdim: 32  # 输入维度
+        out_fdim: 3  # 输出维度
+        relu: False  # 是否使用ReLU激活函数
+        batchnorm: False  # 是否使用批归一化
+  decoder_blocks:  # 解码器块列表
+    - type: "AdaptiveDeconv"  # 自适应反卷积块
+      number_blocks: 4  # 块的数量
       parameters:
-        number_blocks: 4
-        block_id: [0,1,2,3] # [0,...,n-1]
-        subsampling_dist: 1.7 # to compute the subsamping rate, to compute the upsampling rate
-        in_fdim: [3,32,32,32]
-        out_fdim:   32
-        kernel_radius: 0.05
-        relu: True
-        use_batch_norm: False
-        inter_fdim: 128
-        estimate_radius: False
-        subsampling_fct_p1: 0.006 # y = p1 * x^(-p2)
-        subsampling_fct_p2: 1.764
-    - type: "LinearLayer"
-      number_blocks: 1
+        number_blocks: 4  # 块的数量
+        block_id: [0, 1, 2, 3]  # 块ID列表
+        subsampling_dist: 1.7  # 用于计算下采样率和上采样率的点之间最小距离
+        in_fdim: [3, 32, 32, 32]  # 输入维度
+        out_fdim: 32  # 输出维度
+        kernel_radius: 0.05  # 半径
+        relu: True  # 是否使用ReLU激活函数
+        use_batch_norm: False  # 是否使用批归一化
+        inter_fdim: 128  # 中间维度
+        estimate_radius: False  # 是否估计半径
+        subsampling_fct_p1: 0.006  # y = p1 * x^(-p2) 的 p1 参数
+        subsampling_fct_p2: 1.764  # y = p1 * x^(-p2) 的 p2 参数
+    - type: "LinearLayer"  # 线性层
+      number_blocks: 1  # 块的数量
       parameters:
-        in_fdim: 32
-        out_fdim:   3
-        relu: False
-        batchnorm: False
-  out_dir: "network_files/"
+        in_fdim: 32  # 输入维度
+        out_fdim: 3  # 输出维度
+        relu: False  # 是否使用ReLU激活函数
+        batchnorm: False  # 是否使用批归一化
+  out_dir: "network_files/"  # 网络文件的输出目录
 
 ################################################################################
 # dataset (to find parser)
 ################################################################################
 dataset:
   data_folders:
-    grid_output: "/data/" #path/to/the/submaps/
-    prefix: "/path/to/kitti/" #only needed for Kitti2Submap conversion (kitti-format)
-    train: 
+    grid_output: "/data/"  # 子图数据的路径
+    prefix: "/path/to/kitti/"  # 仅在Kitti2Submap转换时需要（Kitti格式）
+    train:  # 训练集子图编号
       - "00"
       - "01"
       - "02"
@@ -123,7 +123,7 @@ dataset:
       - "07"
       - "09"
       - "10"
-    valid:
+    valid:  # 验证集子图编号
       - "validation"
-    test:
+    test:  # 测试集子图编号
       - "08"
