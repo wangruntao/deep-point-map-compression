@@ -1,21 +1,43 @@
 import numpy as np
 
-
 class VoxelGrid():
-    def __init__(self, VOXEL, center, grid_size, voxel_size,point_dim=3):
+    """
+    VoxelGrid类用于创建和管理体素网格。
+    它将空间划分为规则的3D网格，并可以添加点到相应的体素中。
+    """
+    def __init__(self, VOXEL, center, grid_size, voxel_size, point_dim=3):
+        """
+        初始化VoxelGrid类。
+
+        参数:
+        - VOXEL: 体素类的类型。
+        - center: 体素网格的中心点。
+        - grid_size: 体素网格的总大小。
+        - voxel_size: 单个体素的大小。
+        - point_dim: 点的维度，默认为3。
+        """
         self.grid_size = grid_size
         self.center = center
         self.voxel_size = voxel_size
 
+        # 计算体素网格的维度
         self.grid_dim = np.ceil(grid_size / voxel_size).astype('int')
+        # 计算体素的数量
         self.num_voxel = int(np.prod(self.grid_dim))
-        self.origin_offset = center - \
-            np.ceil(grid_size / voxel_size) / 2 * self.voxel_size
-        # print(self.num_voxel)
+        # 计算体素网格的起始点偏移
+        self.origin_offset = center - np.ceil(grid_size / voxel_size) / 2 * self.voxel_size
+        # 初始化体素网格
         self.grid = [VOXEL(point_dim) for i in range(self.num_voxel)]
+        # 用于存储已使用的体素的索引
         self.used_voxel = []
 
     def addPoint(self, point):
+        """
+        向体素网格中添加一个点。
+
+        参数:
+        - point: 要添加的点。
+        """
         idx = self.xyz2index(point)
         if(idx is not None):
             if (self.grid[idx].isEmpty()):
@@ -23,35 +45,42 @@ class VoxelGrid():
             self.grid[idx].addPoint(point)
 
     def xyz2index(self, point):
+        """
+        将点的xyz坐标转换为体素网格中的索引。
+
+        参数:
+        - point: 点的坐标。
+
+        返回:
+        - 点所在体素的索引，如果点不在网格内则返回None。
+        """
         rcl = ((point - self.origin_offset)/self.voxel_size).astype("int")
         if np.any(rcl < 0) or np.any(rcl >= (self.grid_dim)):
             return None
         return rcl[0] + rcl[1] * self.grid_dim[0] + rcl[2] * self.grid_dim[0] * self.grid_dim[1]
 
     def cloud2indices(self, point_cld):
-        '''
-            computes the grid index of each point and a bool if they are inside the grid
-                point_cld [nx3]
-            return
-            ------
-                grid_idx [m,], m times 1d indices of the grid
-                cloud_idx [m,] the indices of the points which are inside the grid
-                | m: number valid points
-        '''
-        rcl = ((point_cld - self.origin_offset)/self.voxel_size).astype("int")
-        # print('rcl',rcl)
-        valid= np.argwhere( np.all(rcl >= 0, axis=1) & np.all(rcl < (self.grid_dim),axis=1)).reshape(-1)
-        # print('valid',valid)
-        idx = rcl[valid,0] + rcl[valid,1] * self.grid_dim[0] + rcl[valid,2] * self.grid_dim[0] * self.grid_dim[1]
-        # print('idx',idx)
+        """
+        将点云转换为体素网格中的索引。
 
+        参数:
+        - point_cld: 点云数组。
+
+        返回:
+        - 点所在体素的索引数组和有效的点索引。
+        """
+        rcl = ((point_cld - self.origin_offset)/self.voxel_size).astype("int")
+        valid= np.argwhere( np.all(rcl >= 0, axis=1) & np.all(rcl < (self.grid_dim),axis=1)).reshape(-1)
+        idx = rcl[valid,0] + rcl[valid,1] * self.grid_dim[0] + rcl[valid,2] * self.grid_dim[0] * self.grid_dim[1]
         return idx, valid
 
     def addPointCloud(self, point_cld):
-        '''
-            add all points [d dimensional] to the grid
-                point_cld [nxd]  | first 3 cols need to be xyz
-        '''
+        """
+        向体素网格中添加点云。
+
+        参数:
+        - point_cld: 要添加的点云。
+        """
         grid_idx, cloud_idx = self.cloud2indices(point_cld[:, 0:3])
         for g_idx, c_idx in zip(grid_idx, cloud_idx):
             if (self.grid[g_idx].isEmpty()):
@@ -59,38 +88,74 @@ class VoxelGrid():
             self.grid[g_idx].addPoint(point_cld[c_idx, :])
 
     def getPointCloud(self):
-        '''
-            returns the voxels which are not empty
-        '''
+        """
+        获取体素网格中非空体素的点。
+
+        返回:
+        - 非空体素的点数组。
+        """
         return np.asarray([self.grid[i].getValue() for i in self.used_voxel])
 
 class AverageVoxel():
+    """
+    AverageVoxel类用于存储体素中的点并计算它们的平均值。
+    """
     def __init__(self,point_dim):
+        """
+        初始化AverageVoxel类。
+
+        参数:
+        - point_dim: 点的维度。
+        """
         self.point = np.zeros((point_dim))
         self.weight = 0
-        # print('hi')
 
     def addPoint(self, point):
+        """
+        向体素中添加一个点。
+
+        参数:
+        - point: 要添加的点。
+        """
         self.point += point
         self.weight += 1
 
     def getValue(self):
+        """
+        获取体素中点的平均值和权重。
+
+        返回:
+        - 点的平均值和权重的数组。
+        """
         dim = self.point.shape[0]
         val = np.ones( (dim+1),dtype= np.float32 ) *self.weight
         val[0:dim]= self.point/self.weight
         return val
 
     def isEmpty(self):
+        """
+        判断体素是否为空。
+
+        返回:
+        - 如果体素为空则返回True，否则返回False。
+        """
         return self.weight == 0
 
-
 class AverageGrid(VoxelGrid):
+    """
+    AverageGrid类继承自VoxelGrid类，用于创建和管理计算点平均值的体素网格。
+    """
     def __init__(self, center, grid_size, voxel_size, point_dim=3):
+        """
+        初始化AverageGrid类。
+
+        参数:
+        - center: 体素网格的中心点。
+        - grid_size: 体素网格的总大小。
+        - voxel_size: 单个体素的大小。
+        - point_dim: 点的维度，默认为3。
+        """
         super().__init__(AverageVoxel, center, grid_size, voxel_size, point_dim=point_dim)
-        # print(self.grid_dim)
-
-
-
 
 if __name__ == "__main__":
     center = np.array([0.0, 0.0, 0.0])
@@ -116,4 +181,3 @@ if __name__ == "__main__":
     p2 = voxel_grid2.getPointCloud()
     print('v2 points',p2.shape,p2)
     print('diff',p-p2)
-
